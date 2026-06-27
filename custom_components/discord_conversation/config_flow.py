@@ -6,7 +6,14 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+    OptionsFlowWithReload,
+)
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntityFilterSelectorConfig,
@@ -140,6 +147,11 @@ class DiscordConversationConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="config", data_schema=build_config_schema(options)
         )
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return DiscordConversationOptionsFlow()
+
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
@@ -164,3 +176,97 @@ class DiscordConversationConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reauth_confirm", data_schema=STEP_USER_SCHEMA, errors=errors
         )
+
+
+async def _ha_user_options(hass: HomeAssistant) -> list[SelectOptionDict]:
+    """Build SelectOptionDict list from active, non-system HA users."""
+    users = await hass.auth.async_get_users()
+    return [
+        SelectOptionDict(value=user.id, label=user.name or user.id)
+        for user in users
+        if user.is_active and not user.system_generated
+    ]
+
+
+class DiscordConversationOptionsFlow(OptionsFlowWithReload):
+    """Options: general settings and Discord->HA user mappings."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["settings", "add_user_map", "remove_user_map"],
+        )
+
+    async def async_step_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            merged = dict(self.config_entry.options)
+            merged.update(user_input)
+            merged[CONF_LANGUAGE] = merged.get(CONF_LANGUAGE) or None
+            return self.async_create_entry(title="", data=merged)
+
+        try:
+            channels = await list_text_channels(self.config_entry.data[CONF_TOKEN])
+        except (InvalidAuth, CannotConnect):
+            channels = []
+        channel_options = [
+            SelectOptionDict(value=cid, label=label) for cid, label in channels
+        ]
+        user_options = await _ha_user_options(self.hass)
+        schema = build_config_schema(channel_options).extend(
+            {
+                vol.Optional(CONF_FALLBACK_USER): SelectSelector(
+                    SelectSelectorConfig(
+                        options=user_options, mode=SelectSelectorMode.DROPDOWN
+                    )
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id="settings",
+            data_schema=self.add_suggested_values_to_schema(
+                schema, self.config_entry.options
+            ),
+        )
+
+    async def async_step_add_user_map(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            merged = dict(self.config_entry.options)
+            user_map = dict(merged.get(CONF_USER_MAP, {}))
+            discord_uid = str(user_input["discord_user_id"])
+            user_map[discord_uid] = user_input[CONF_FALLBACK_USER]
+            merged[CONF_USER_MAP] = user_map
+            return self.async_create_entry(title="", data=merged)
+
+        user_options = await _ha_user_options(self.hass)
+        schema = vol.Schema(
+            {
+                vol.Required("discord_user_id"): TextSelector(),
+                vol.Required(CONF_FALLBACK_USER): SelectSelector(
+                    SelectSelectorConfig(
+                        options=user_options, mode=SelectSelectorMode.DROPDOWN
+                    )
+                ),
+            }
+        )
+        return self.async_show_form(step_id="add_user_map", data_schema=schema)
+
+    async def async_step_remove_user_map(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        user_map = dict(self.config_entry.options.get(CONF_USER_MAP, {}))
+        if user_input is not None:
+            user_map.pop(str(user_input["discord_user_id"]), None)
+            merged = dict(self.config_entry.options)
+            merged[CONF_USER_MAP] = user_map
+            return self.async_create_entry(title="", data=merged)
+
+        schema = vol.Schema(
+            {vol.Required("discord_user_id"): vol.In(sorted(user_map))}
+        )
+        return self.async_show_form(step_id="remove_user_map", data_schema=schema)
