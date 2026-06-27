@@ -1,0 +1,11 @@
+{
+  "domain": "discord_conversation",
+  "name": "Discord Conversation",
+  "codeowners": ["@aarontc"],
+  "config_flow": true,
+  "documentation": "https://gitlab.idleengineers.com/aaron/home-assistant-discord-conversation",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://gitlab.idleengineers.com/aaron/home-assistant-discord-conversation/-/issues",
+  "requirements": ["discord.py==2.7.1"],
+  "version": "0.1.0"
+}
