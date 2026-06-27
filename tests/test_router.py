@@ -4,6 +4,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from custom_components.discord_conversation.const import (
+    CONF_AGENT_ID,
+    CONF_ALLOWLIST,
+    CONF_USER_MAP,
+)
 from custom_components.discord_conversation.conversation_cache import ConversationCache
 from custom_components.discord_conversation.conversation_router import (
     ConversationRouter,
@@ -115,3 +120,20 @@ async def test_process_handles_missing_speech():
             text="hi", discord_user_id=1, conversation_key="dm:1"
         )
     assert reply == ""
+
+
+def test_from_entry_skips_non_numeric_allowlist_and_user_map():
+    """Non-numeric allowlist entries and user_map keys are silently dropped."""
+    from types import SimpleNamespace
+
+    entry = SimpleNamespace(
+        options={
+            CONF_AGENT_ID: "conversation.ollama",
+            CONF_ALLOWLIST: ["123456789", "not-a-number", "987654321"],
+            CONF_USER_MAP: {"111": "ha-user-a", "bad-key": "ha-user-b"},
+        }
+    )
+    hass = object()
+    router = ConversationRouter.from_entry(hass, entry)
+    assert router.allowlist == {123456789, 987654321}
+    assert router.user_map == {111: "ha-user-a"}

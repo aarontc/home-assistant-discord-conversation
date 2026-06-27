@@ -25,7 +25,9 @@
     },
     "error": {
       "invalid_auth": "The bot token was rejected by Discord.",
-      "cannot_connect": "Could not reach Discord. Check connectivity and try again."
+      "cannot_connect": "Could not reach Discord. Check connectivity and try again.",
+      "invalid_user_id": "That is not a valid Discord user ID (digits only).",
+      "wrong_account": "That token belongs to a different bot than this entry."
     },
     "abort": {
       "already_configured": "This Discord bot is already configured.",
@@ -33,6 +35,9 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_user_id": "That is not a valid Discord user ID (digits only)."
+    },
     "step": {
       "init": {
         "title": "Discord Conversation options",

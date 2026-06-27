@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -24,6 +25,19 @@ from .const import (
     DEFAULT_RESPOND_MENTIONS,
 )
 from .conversation_cache import ConversationCache
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _coerce_int_set(values, field):
+    """Coerce an iterable to a set of ints, logging and skipping non-numeric values."""
+    result = set()
+    for value in values:
+        try:
+            result.add(int(value))
+        except (TypeError, ValueError):
+            _LOGGER.warning("Ignoring non-numeric %s value: %r", field, value)
+    return result
 
 
 def make_conversation_key(*, is_dm: bool, channel_id: int, author_id: int) -> str:
@@ -91,15 +105,23 @@ class ConversationRouter:
         cls, hass: HomeAssistant, entry: ConfigEntry
     ) -> ConversationRouter:
         opts = entry.options
+        user_map: dict[int, str] = {}
+        for key, value in opts.get(CONF_USER_MAP, {}).items():
+            try:
+                user_map[int(key)] = value
+            except (TypeError, ValueError):
+                _LOGGER.warning(
+                    "Ignoring non-numeric Discord user id in mapping: %r", key
+                )
         return cls(
             hass=hass,
             agent_id=opts.get(CONF_AGENT_ID),
             language=opts.get(CONF_LANGUAGE) or None,
-            channels={int(c) for c in opts.get(CONF_CHANNELS, [])},
+            channels=_coerce_int_set(opts.get(CONF_CHANNELS, []), "channel"),
             respond_dms=opts.get(CONF_RESPOND_DMS, DEFAULT_RESPOND_DMS),
             respond_mentions=opts.get(CONF_RESPOND_MENTIONS, DEFAULT_RESPOND_MENTIONS),
-            allowlist={int(a) for a in opts.get(CONF_ALLOWLIST, [])},
-            user_map={int(k): v for k, v in opts.get(CONF_USER_MAP, {}).items()},
+            allowlist=_coerce_int_set(opts.get(CONF_ALLOWLIST, []), "allowlist id"),
+            user_map=user_map,
             fallback_user=opts.get(CONF_FALLBACK_USER) or None,
             cache=ConversationCache(
                 timedelta(minutes=opts.get(CONF_IDLE_MINUTES, DEFAULT_IDLE_MINUTES))

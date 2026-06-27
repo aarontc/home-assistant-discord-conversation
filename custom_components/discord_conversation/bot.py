@@ -47,13 +47,32 @@ class DiscordConversationClient(discord.Client):
         key = make_conversation_key(
             is_dm=is_dm, channel_id=message.channel.id, author_id=message.author.id
         )
-        async with message.channel.typing():
+        reply = ERROR_REPLY
+        try:
+            reply = await self._answer(message, text, key)
+        except Exception:  # noqa: BLE001 - never let the gateway die
+            _LOGGER.exception("Conversation processing failed")
+        for part in chunk_message(reply or EMPTY_REPLY):
             try:
-                reply = await self.router.process(
+                await message.channel.send(part)
+            except discord.HTTPException:
+                _LOGGER.warning(
+                    "Failed to send reply to channel %s", message.channel.id
+                )
+                break
+
+    async def _answer(self, message: discord.Message, text: str, key: str) -> str:
+        """Process the message, showing a typing indicator best-effort.
+
+        A typing-indicator failure must not block the actual reply (spec §11),
+        so fall back to answering without it.
+        """
+        try:
+            async with message.channel.typing():
+                return await self.router.process(
                     text=text, discord_user_id=message.author.id, conversation_key=key
                 )
-            except Exception:  # noqa: BLE001 - never let the gateway die
-                _LOGGER.exception("Conversation processing failed")
-                reply = ERROR_REPLY
-            for part in chunk_message(reply or EMPTY_REPLY):
-                await message.channel.send(part)
+        except discord.HTTPException:
+            return await self.router.process(
+                text=text, discord_user_id=message.author.id, conversation_key=key
+            )

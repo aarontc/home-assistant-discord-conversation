@@ -14,7 +14,7 @@ def _message(content, *, author_bot=False, is_dm=False, mentions=None, channel_i
     channel.send = AsyncMock()
     typing_cm = MagicMock()
     typing_cm.__aenter__ = AsyncMock()
-    typing_cm.__aexit__ = AsyncMock()
+    typing_cm.__aexit__ = AsyncMock(return_value=False)
     channel.typing = MagicMock(return_value=typing_cm)
     return SimpleNamespace(
         content=content,
@@ -71,3 +71,41 @@ async def test_on_message_posts_apology_on_error(monkeypatch):
     await client.on_message(msg)
     sent = msg.channel.send.await_args.args[0]
     assert "error" in sent.lower()
+
+
+async def test_on_message_replies_when_typing_fails(monkeypatch):
+    """A typing-indicator failure must not block the real reply (spec §11)."""
+    router = MagicMock()
+    router.should_respond.return_value = True
+    router.process = AsyncMock(return_value="Lights are off.")
+    client = _client(router, monkeypatch)
+
+    msg = _message("<@999> lights?", mentions=[SimpleNamespace(id=999)])
+    # Make the typing context manager raise on enter
+    typing_cm = MagicMock()
+    typing_cm.__aenter__ = AsyncMock(
+        side_effect=discord.HTTPException(MagicMock(), "forbidden")
+    )
+    typing_cm.__aexit__ = AsyncMock(return_value=False)
+    msg.channel.typing = MagicMock(return_value=typing_cm)
+
+    await client.on_message(msg)
+
+    router.process.assert_awaited_once()
+    msg.channel.send.assert_awaited_once_with("Lights are off.")
+
+
+async def test_on_message_does_not_raise_when_send_fails(monkeypatch):
+    """A send failure must be caught and logged, not propagated."""
+    router = MagicMock()
+    router.should_respond.return_value = True
+    router.process = AsyncMock(return_value="Reply text.")
+    client = _client(router, monkeypatch)
+
+    msg = _message("<@999> hello", mentions=[SimpleNamespace(id=999)])
+    msg.channel.send = AsyncMock(
+        side_effect=discord.HTTPException(MagicMock(), "missing permissions")
+    )
+
+    # Must not raise
+    await client.on_message(msg)

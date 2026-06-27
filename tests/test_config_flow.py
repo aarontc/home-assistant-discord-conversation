@@ -107,3 +107,28 @@ async def test_reauth_updates_token(hass: HomeAssistant):
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert entry.data[CONF_TOKEN] == "new"
+
+
+async def test_reauth_rejects_different_bot(hass: HomeAssistant):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="botid-1",
+        data={CONF_TOKEN: "old", "bot_id": "botid-1"},
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.discord_conversation.config_flow.validate_token",
+        new=AsyncMock(return_value="botid-DIFFERENT"),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_REAUTH, "entry_id": entry.entry_id},
+            data=entry.data,
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_TOKEN: "other-bot-token"}
+        )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "wrong_account"}
+    # Token must not have been updated
+    assert entry.data[CONF_TOKEN] == "old"

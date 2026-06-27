@@ -83,6 +83,28 @@ async def test_add_user_mapping(hass: HomeAssistant):
     assert entry.options[CONF_USER_MAP] == {"7": "ha-user-1"}
 
 
+async def test_add_user_mapping_rejects_non_numeric_discord_id(hass: HomeAssistant):
+    entry = _entry(hass)
+    fake_user = SimpleNamespace(
+        id="ha-user-1", name="Alice", is_active=True, system_generated=False
+    )
+    with patch.object(
+        hass.auth, "async_get_users", AsyncMock(return_value=[fake_user])
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"next_step_id": "add_user_map"}
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"discord_user_id": "not-a-number", CONF_FALLBACK_USER: "ha-user-1"},
+        )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_user_id"}
+    # No mapping was created
+    assert entry.options.get(CONF_USER_MAP, {}) == {}
+
+
 async def test_remove_user_mapping(hass: HomeAssistant):
     entry = _entry(
         hass,

@@ -21,6 +21,8 @@ class ConversationCache:
         self._store: dict[str, tuple[str, datetime]] = {}
 
     def get(self, key: str) -> str | None:
+        # Eviction is lazy (only on access) by design — inactive keys persist until
+        # next access, which is acceptable at home scale.
         item = self._store.get(key)
         if item is None:
             return None

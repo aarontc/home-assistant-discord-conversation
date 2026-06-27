@@ -24,7 +24,7 @@ A Home Assistant custom integration that exposes the Assist conversation agent o
 
 ### Prerequisites
 
-- Home Assistant 2024.1.0 or later
+- Home Assistant 2026.6.0 or later
 - [HACS](https://hacs.xyz) installed
 
 ### Install via HACS

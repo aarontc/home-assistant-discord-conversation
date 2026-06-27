@@ -163,16 +163,19 @@ class DiscordConversationConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                await validate_token(user_input[CONF_TOKEN])
+                bot_id = await validate_token(user_input[CONF_TOKEN])
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             else:
-                return self.async_update_reload_and_abort(
-                    self._get_reauth_entry(),
-                    data_updates={CONF_TOKEN: user_input[CONF_TOKEN]},
-                )
+                if bot_id != self._get_reauth_entry().unique_id:
+                    errors["base"] = "wrong_account"
+                else:
+                    return self.async_update_reload_and_abort(
+                        self._get_reauth_entry(),
+                        data_updates={CONF_TOKEN: user_input[CONF_TOKEN]},
+                    )
         return self.async_show_form(
             step_id="reauth_confirm", data_schema=STEP_USER_SCHEMA, errors=errors
         )
@@ -235,13 +238,17 @@ class DiscordConversationOptionsFlow(OptionsFlowWithReload):
     async def async_step_add_user_map(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            merged = dict(self.config_entry.options)
-            user_map = dict(merged.get(CONF_USER_MAP, {}))
-            discord_uid = str(user_input["discord_user_id"])
-            user_map[discord_uid] = user_input[CONF_FALLBACK_USER]
-            merged[CONF_USER_MAP] = user_map
-            return self.async_create_entry(title="", data=merged)
+            if not str(user_input["discord_user_id"]).isdigit():
+                errors["base"] = "invalid_user_id"
+            else:
+                merged = dict(self.config_entry.options)
+                user_map = dict(merged.get(CONF_USER_MAP, {}))
+                discord_uid = str(user_input["discord_user_id"])
+                user_map[discord_uid] = user_input[CONF_FALLBACK_USER]
+                merged[CONF_USER_MAP] = user_map
+                return self.async_create_entry(title="", data=merged)
 
         user_options = await _ha_user_options(self.hass)
         schema = vol.Schema(
@@ -254,7 +261,9 @@ class DiscordConversationOptionsFlow(OptionsFlowWithReload):
                 ),
             }
         )
-        return self.async_show_form(step_id="add_user_map", data_schema=schema)
+        return self.async_show_form(
+            step_id="add_user_map", data_schema=schema, errors=errors
+        )
 
     async def async_step_remove_user_map(
         self, user_input: dict[str, Any] | None = None
