@@ -13,7 +13,9 @@ from custom_components.discord_conversation.const import (
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
+async def auto_enable_custom_integrations(
+    enable_custom_integrations, setup_core_components
+):
     """Load the custom integration so setup/unload run the real entry path."""
     yield
 

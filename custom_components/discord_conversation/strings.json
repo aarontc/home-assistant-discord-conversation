@@ -1,0 +1,71 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Discord bot token",
+        "description": "Paste the bot token from the Discord Developer Portal. Enable the Message Content privileged intent for the application before using channel listening.",
+        "data": { "token": "Bot token" }
+      },
+      "config": {
+        "title": "Conversation settings",
+        "data": {
+          "agent_id": "Conversation agent",
+          "channels": "Channels to listen in",
+          "respond_dms": "Respond to direct messages",
+          "respond_mentions": "Respond to @mentions anywhere",
+          "idle_minutes": "Reset a conversation after this many idle minutes",
+          "language": "Language (blank = Home Assistant default)",
+          "allowlist": "Allowed Discord user IDs (blank = everyone)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter Discord bot token",
+        "data": { "token": "Bot token" }
+      }
+    },
+    "error": {
+      "invalid_auth": "The bot token was rejected by Discord.",
+      "cannot_connect": "Could not reach Discord. Check connectivity and try again."
+    },
+    "abort": {
+      "already_configured": "This Discord bot is already configured.",
+      "reauth_successful": "Token updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Discord Conversation options",
+        "menu_options": {
+          "settings": "Conversation settings",
+          "add_user_map": "Add a Discord-to-Home-Assistant user mapping",
+          "remove_user_map": "Remove a user mapping"
+        }
+      },
+      "settings": {
+        "title": "Conversation settings",
+        "data": {
+          "agent_id": "Conversation agent",
+          "channels": "Channels to listen in",
+          "respond_dms": "Respond to direct messages",
+          "respond_mentions": "Respond to @mentions anywhere",
+          "idle_minutes": "Reset a conversation after this many idle minutes",
+          "language": "Language (blank = Home Assistant default)",
+          "allowlist": "Allowed Discord user IDs (blank = everyone)",
+          "fallback_ha_user": "Fallback Home Assistant user for unmapped Discord users"
+        }
+      },
+      "add_user_map": {
+        "title": "Add user mapping",
+        "data": {
+          "discord_user_id": "Discord user ID",
+          "fallback_ha_user": "Home Assistant user"
+        }
+      },
+      "remove_user_map": {
+        "title": "Remove user mapping",
+        "data": { "discord_user_id": "Discord user ID" }
+      }
+    }
+  }
+}

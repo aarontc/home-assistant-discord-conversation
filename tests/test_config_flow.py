@@ -17,7 +17,9 @@ _CHANNELS = [("555", "Home / #general")]
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
+async def auto_enable_custom_integrations(
+    enable_custom_integrations, setup_core_components
+):
     """Load the custom integration so its config flow is discoverable."""
     yield
 

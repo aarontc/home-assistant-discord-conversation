@@ -1,0 +1,16 @@
+stages: [lint, test]
+
+default:
+  image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+  before_script:
+    - uv sync --all-extras --dev
+
+ruff:
+  stage: lint
+  script:
+    - uv run ruff check .
+
+pytest:
+  stage: test
+  script:
+    - uv run pytest -v

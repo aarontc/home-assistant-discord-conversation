@@ -8,6 +8,10 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _COMPONENT_DIR = _REPO_ROOT / "custom_components" / "discord_conversation"
 
@@ -49,3 +53,16 @@ def _ensure_component_symlink_in_testing_config() -> None:
 _ensure_component_symlink_in_testing_config()
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
+
+
+@pytest.fixture
+async def setup_core_components(hass: HomeAssistant) -> None:
+    """Set up the homeassistant component so the conversation dependency can load.
+
+    Adding ``"dependencies": ["conversation"]`` to manifest.json causes HA's loader
+    to set up the conversation component before loading discord_conversation.  The
+    conversation component's default agent calls async_should_expose during startup,
+    which requires homeassistant.exposed_entities to be registered in hass.data.
+    Setting up the homeassistant component here satisfies that requirement.
+    """
+    await async_setup_component(hass, "homeassistant", {})
