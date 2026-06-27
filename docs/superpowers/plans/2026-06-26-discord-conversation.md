@@ -22,6 +22,8 @@ These apply to **every** task. Each task's requirements implicitly include this 
 - **No AI attribution anywhere** — commit messages, trailers, comments, docs, author identity. No `Co-Authored-By`/`Generated with` trailers. Write everything as the user's own work.
 - **Commits:** conventional-commit style (`feat:`, `test:`, `docs:`, `chore:`). Commit at the end of every task.
 - **Test command (from repo root):** `uv run pytest <path> -v`. Discord and `async_converse` are always mocked — no live gateway or LLM in tests.
+- **Lint hygiene:** run `uv run ruff check --fix <changed files>` before each commit so import sorting and lint stay clean cumulatively (CI runs `ruff check .` with no `--fix`).
+- **Integration-style tests** (config flow, options flow, setup/unload) MUST declare an autouse fixture `auto_enable_custom_integrations(enable_custom_integrations)` so HA loads the custom integration; pure unit tests must NOT (it pulls in the HA harness unnecessarily). Mirrors `haconf/custom_components/power_anomaly`.
 
 ---
 
@@ -215,7 +217,7 @@ target-version = "py314"
 select = ["E", "F", "I", "UP", "B"]
 ```
 
-> Note: pin `pytest-homeassistant-custom-component` (and the `homeassistant` it pulls) to the version matching the **deployed HA** (`haconf/.HA_VERSION`) during implementation, so tests run against the same core the box runs.
+> Note: target environment is **Home Assistant 2026.6.3 on Python 3.14.6** (the deployed box, per `haconf/.HA_VERSION`). Pin `homeassistant==2026.6.3` and the matching `pytest-homeassistant-custom-component` release as dev deps (phcc hard-pins exactly one HA version — if `uv sync` reports a resolution conflict, the phcc pin is wrong for this HA; choose the phcc release whose `homeassistant` dependency equals `2026.6.3`). `discord.py==2.7.1` is both the runtime requirement and a dev/test dep. Prior art for a working standalone-style phcc setup on this exact HA/Python: `haconf/custom_components/power_anomaly`.
 
 - [ ] **Step 6: Write `mise.toml` and `.tool-versions` (kept in sync)**
 
@@ -973,6 +975,8 @@ git commit -m "feat: add REST-only discord token validation and channel listing"
 ```python
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from homeassistant.config_entries import SOURCE_REAUTH, SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -986,6 +990,12 @@ from custom_components.discord_conversation.const import (
 )
 
 _CHANNELS = [("555", "Home / #general")]
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Load the custom integration so its config flow is discoverable."""
+    yield
 
 
 async def test_full_user_flow(hass: HomeAssistant):
@@ -1268,6 +1278,8 @@ git commit -m "feat: add config flow (token, settings, reauth)"
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -1281,6 +1293,12 @@ from custom_components.discord_conversation.const import (
     CONF_USER_MAP,
     DOMAIN,
 )
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Load the custom integration so its options flow is discoverable."""
+    yield
 
 
 def _entry(hass, options=None):
@@ -1670,6 +1688,8 @@ git commit -m "feat: add discord gateway client with message dispatch"
 ```python
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -1679,6 +1699,12 @@ from custom_components.discord_conversation.const import (
     CONF_TOKEN,
     DOMAIN,
 )
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Load the custom integration so setup/unload run the real entry path."""
+    yield
 
 
 def _entry():
