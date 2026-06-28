@@ -103,7 +103,9 @@ func (m *DiscordConversation) CommitsSinceTag(
 
 // CreateTag calculates the next version, commits updated version strings
 // to manifest.json and pyproject.toml, then creates a Git tag on that
-// commit via the GitLab API. `token` needs `write_repository` scope.
+// commit via the GitLab API. `token` needs `api` scope: it reads the version
+// files and writes the commit + tag through the REST API, for which
+// `write_repository` alone is insufficient.
 //
 // The version-bump commit and the tag ref both need to exist on the
 // default branch without triggering another `tag:auto` run (which would
@@ -124,7 +126,7 @@ func (m *DiscordConversation) CreateTag(
 	gitlabURL string,
 	// Project ID or URL-encoded full path, e.g. "aaron/home-assistant-discord-conversation"
 	projectID string,
-	// GitLab API token with write_repository scope
+	// GitLab API token with api scope (reads files, writes commits + tags)
 	token *dagger.Secret,
 	// Branch to commit the version bump to (default: main)
 	// +optional

@@ -98,8 +98,10 @@ creates the tag via the GitLab API.
 
 For this to work, a **project CI/CD variable `PROJECT_ACCESS_TOKEN`** must be
 set to a Project Access Token (or Personal Access Token) that has the
-**`write_repository`** scope. Create it under **Settings → Access Tokens** and
-mark the variable **Masked** and **Protected**.
+**`api`** scope — it reads the version files and writes the bump commit + tag
+through the REST API, for which `write_repository` alone is insufficient. Create
+it under **Settings → Access Tokens** and mark the variable **Masked** and
+**Protected**.
 
 The job is a no-op on pipelines triggered by tags themselves, so there's no
 feedback loop.

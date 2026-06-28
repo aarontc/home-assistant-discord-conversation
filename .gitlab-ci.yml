@@ -77,7 +77,8 @@ check:
 # Auto-tag pushes to the default branch. The severity is derived from commit
 # subjects carrying `(Major)`, `(Minor)`, or `(Patch)` prefixes — see
 # CONTRIBUTING.md#versioning. Requires the `PROJECT_ACCESS_TOKEN` CI/CD
-# variable to be set to a token with `write_repository` scope.
+# variable to be set to a token with `api` scope (it reads the version files
+# and writes the bump commit + tag via the REST API).
 tag:auto:
   extends: .dagger
   stage: tag
