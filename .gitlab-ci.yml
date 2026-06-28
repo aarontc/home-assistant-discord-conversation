@@ -41,6 +41,14 @@ workflow:
   # on the shared host docker), and running several concurrently exhausts the
   # self-hosted runner. A shared resource_group runs them one at a time.
   resource_group: dagger
+  # runner03 intermittently reports `runner_system_failure: context deadline
+  # exceeded` while tearing down the Dagger engine sibling container, even when
+  # the job's actual work succeeded. Auto-retry those infra failures only —
+  # real script failures (failed lint/test) are not in `when`, so they fail fast.
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
   variables:
     DAGGER_NO_NAG: "1"
   before_script:
