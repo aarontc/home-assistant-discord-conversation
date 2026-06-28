@@ -35,7 +35,7 @@ def _coerce_int_set(values, field):
     for value in values:
         try:
             result.add(int(value))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             _LOGGER.warning("Ignoring non-numeric %s value: %r", field, value)
     return result
 
@@ -101,15 +101,13 @@ class ConversationRouter:
         return (speech.get("plain") or {}).get("speech") or ""
 
     @classmethod
-    def from_entry(
-        cls, hass: HomeAssistant, entry: ConfigEntry
-    ) -> ConversationRouter:
+    def from_entry(cls, hass: HomeAssistant, entry: ConfigEntry) -> ConversationRouter:
         opts = entry.options
         user_map: dict[int, str] = {}
         for key, value in opts.get(CONF_USER_MAP, {}).items():
             try:
                 user_map[int(key)] = value
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 _LOGGER.warning(
                     "Ignoring non-numeric Discord user id in mapping: %r", key
                 )

@@ -41,7 +41,9 @@ async def test_options_menu_shown(hass: HomeAssistant):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
     assert set(result["menu_options"]) == {
-        "settings", "add_user_map", "remove_user_map"
+        "settings",
+        "add_user_map",
+        "remove_user_map",
     }
 
 

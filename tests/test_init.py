@@ -59,10 +59,13 @@ async def test_login_failure_triggers_reauth(hass: HomeAssistant):
     fake_client.start = AsyncMock(side_effect=discord.LoginFailure("bad"))
     fake_client.close = AsyncMock()
 
-    with patch(
-        "custom_components.discord_conversation.DiscordConversationClient",
-        return_value=fake_client,
-    ), patch.object(entry, "async_start_reauth") as mock_reauth:
+    with (
+        patch(
+            "custom_components.discord_conversation.DiscordConversationClient",
+            return_value=fake_client,
+        ),
+        patch.object(entry, "async_start_reauth") as mock_reauth,
+    ):
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
     mock_reauth.assert_called_once()

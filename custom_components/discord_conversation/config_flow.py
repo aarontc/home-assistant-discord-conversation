@@ -64,7 +64,9 @@ def build_config_schema(channel_options: list[SelectOptionDict]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_AGENT_ID): EntitySelector(
-                EntitySelectorConfig(filter=EntityFilterSelectorConfig(domain="conversation"))
+                EntitySelectorConfig(
+                    filter=EntityFilterSelectorConfig(domain="conversation")
+                )
             ),
             vol.Optional(CONF_CHANNELS, default=[]): SelectSelector(
                 SelectSelectorConfig(
@@ -140,7 +142,7 @@ class DiscordConversationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         try:
             channels = await list_text_channels(self._token)
-        except (InvalidAuth, CannotConnect):
+        except InvalidAuth, CannotConnect:
             channels = []
         options = [SelectOptionDict(value=cid, label=label) for cid, label in channels]
         return self.async_show_form(
@@ -213,7 +215,7 @@ class DiscordConversationOptionsFlow(OptionsFlowWithReload):
 
         try:
             channels = await list_text_channels(self.config_entry.data[CONF_TOKEN])
-        except (InvalidAuth, CannotConnect):
+        except InvalidAuth, CannotConnect:
             channels = []
         channel_options = [
             SelectOptionDict(value=cid, label=label) for cid, label in channels
@@ -275,7 +277,5 @@ class DiscordConversationOptionsFlow(OptionsFlowWithReload):
             merged[CONF_USER_MAP] = user_map
             return self.async_create_entry(title="", data=merged)
 
-        schema = vol.Schema(
-            {vol.Required("discord_user_id"): vol.In(sorted(user_map))}
-        )
+        schema = vol.Schema({vol.Required("discord_user_id"): vol.In(sorted(user_map))})
         return self.async_show_form(step_id="remove_user_map", data_schema=schema)

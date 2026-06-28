@@ -1,16 +1,97 @@
-stages: [lint, test]
+stages:
+  - check
+  - tag
+  - nightly
 
-default:
-  image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+# Suppress pipeline creation entirely for events that would otherwise show
+# up as "skipped" pipelines — those break the status badge because it
+# reflects the latest pipeline regardless of stage content.
+#
+#   - Version-bump chore commits created by `tag:auto` carry no changes
+#     that need CI (the upstream push already ran).
+#   - Tag pushes are produced by `tag:auto` from a pipeline that already
+#     ran; the tag ref itself doesn't need its own pipeline.
+#
+# The bump-commit title pattern here must stay in sync with the message
+# format produced by `createVersionBumpCommit` in `.dagger/version.go`.
+workflow:
+  rules:
+    # Match only the exact bump-commit title format emitted by
+    # `createVersionBumpCommit` in .dagger/version.go — anchored to
+    # require a trailing `X.Y.Z` version so commit bodies that merely
+    # mention the phrase cannot trigger the filter.
+    - if: '$CI_COMMIT_TITLE =~ /^\(Patch\) release: bump version to [0-9]+\.[0-9]+\.[0-9]+$/'
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# Reusable template for every job that calls Dagger.
+# Uses the plain docker image; runner03 exposes the host's docker socket, so the
+# Dagger CLI auto-provisions its engine as a sibling container — no dind service
+# is needed. The CLI is fetched and SHA-256-verified before use (never piped
+# straight into a shell). The pin is version-specific: bump DAGGER_SHA256
+# alongside the `dagger` version in .tool-versions / dagger.json. Checksums:
+# https://dl.dagger.io/dagger/releases/<version>/checksums.txt
+.dagger:
+  image: docker:28
+  # Serialize Dagger jobs: each provisions its own engine (a sibling container
+  # on the shared host docker), and running several concurrently exhausts the
+  # self-hosted runner. A shared resource_group runs them one at a time.
+  resource_group: dagger
+  variables:
+    DAGGER_NO_NAG: "1"
   before_script:
-    - uv sync --all-extras --dev
+    - apk add --no-cache curl git tar
+    - DAGGER_VERSION=$(grep '^dagger ' .tool-versions | awk '{print $2}')
+    - |
+      case "$(uname -m)" in
+        x86_64)  DAGGER_ARCH=amd64; DAGGER_SHA256=2caba48aee8a5dca8e01dbc8aac9464f83bf7d2464d53cf4c971b61adf4f9738 ;;
+        aarch64) DAGGER_ARCH=arm64; DAGGER_SHA256=0a1c8a19ca3a3fc0a8d2de15a72bd5e7b50806794bec891544a3de0983863179 ;;
+        *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
+      esac
+    - curl -fsSL -o /tmp/dagger.tgz "https://dl.dagger.io/dagger/releases/${DAGGER_VERSION}/dagger_v${DAGGER_VERSION}_linux_${DAGGER_ARCH}.tar.gz"
+    - echo "${DAGGER_SHA256}  /tmp/dagger.tgz" | sha256sum -c -
+    - tar -xzf /tmp/dagger.tgz -C /usr/local/bin dagger
+    - rm -f /tmp/dagger.tgz
 
-ruff:
-  stage: lint
+check:
+  extends: .dagger
+  stage: check
   script:
-    - uv run ruff check .
+    - dagger call all
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-pytest:
-  stage: test
+# Auto-tag pushes to the default branch. The severity is derived from commit
+# subjects carrying `(Major)`, `(Minor)`, or `(Patch)` prefixes — see
+# CONTRIBUTING.md#versioning. Requires the `PROJECT_ACCESS_TOKEN` CI/CD
+# variable to be set to a token with `write_repository` scope.
+tag:auto:
+  extends: .dagger
+  stage: tag
+  variables:
+    # The create-tag function needs the full history + tags to resolve the
+    # previous release; the default shallow fetch depth of 20 is not enough.
+    GIT_DEPTH: "0"
   script:
-    - uv run pytest -v
+    - |
+      dagger call create-tag \
+        --source=. \
+        --gitlab-url=$CI_SERVER_URL \
+        --project-id=$CI_PROJECT_ID \
+        --token=env:PROJECT_ACCESS_TOKEN \
+        --branch=$CI_COMMIT_BRANCH
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+nightly:
+  extends: .dagger
+  stage: nightly
+  script:
+    - dagger call test-latest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"

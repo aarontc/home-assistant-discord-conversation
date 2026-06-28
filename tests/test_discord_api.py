@@ -62,9 +62,12 @@ async def test_list_text_channels():
 
     client = _client_mock()
     client.fetch_guilds = _aiter_guilds
-    with patch("discord.Client", return_value=client), patch(
-        "custom_components.discord_conversation.discord_api.isinstance",
-        side_effect=lambda obj, typ: obj is text_channel,
+    with (
+        patch("discord.Client", return_value=client),
+        patch(
+            "custom_components.discord_conversation.discord_api.isinstance",
+            side_effect=lambda obj, typ: obj is text_channel,
+        ),
     ):
         channels = await list_text_channels("good")
     assert channels == [("555", "Home / #general")]

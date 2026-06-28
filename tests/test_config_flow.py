@@ -25,12 +25,15 @@ async def auto_enable_custom_integrations(
 
 
 async def test_full_user_flow(hass: HomeAssistant):
-    with patch(
-        "custom_components.discord_conversation.config_flow.validate_token",
-        new=AsyncMock(return_value="botid-1"),
-    ), patch(
-        "custom_components.discord_conversation.config_flow.list_text_channels",
-        new=AsyncMock(return_value=_CHANNELS),
+    with (
+        patch(
+            "custom_components.discord_conversation.config_flow.validate_token",
+            new=AsyncMock(return_value="botid-1"),
+        ),
+        patch(
+            "custom_components.discord_conversation.config_flow.list_text_channels",
+            new=AsyncMock(return_value=_CHANNELS),
+        ),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": SOURCE_USER}
